@@ -42,12 +42,12 @@ svn co -r $REVISION svn://tug.org/texlive/trunk/Build/source/build-aux
 (
   dir="texmf-dist/scripts/texlive"
   mkdir -p $dir
-  svn export -r $REVISION svn://tug.org/texlive/trunk/Master/$dir/mktexlsr.pl $dir/
+  svn export --force -r $REVISION svn://tug.org/texlive/trunk/Master/$dir/mktexlsr.pl $dir/
 )
 (
   dir="texmf-dist/doc/info"
   mkdir -p $dir
-  svn export -r $REVISION svn://tug.org/texlive/trunk/Master/$dir/tds.info $dir/
+  svn export --force -r $REVISION svn://tug.org/texlive/trunk/Master/$dir/tds.info $dir/
 )
 
 # Add the changes and show them
