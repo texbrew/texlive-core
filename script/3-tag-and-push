@@ -1,0 +1,22 @@
+#!/bin/bash -o errexit -o nounset -o verbose
+
+# Return to $PWD at the end.
+trap "cd $PWD; exit" INT TERM EXIT
+
+# Get top-level repository directory.
+TOP="$(git rev-parse --show-toplevel)"
+cd "$TOP"
+
+source version
+
+# Delete the local tag, if it exists
+git tag -d "$VERSION" || true
+
+# Tag the version.
+git tag -a "$VERSION" -m "r$REVISION"
+
+# Delete the remote tag, if it exists.
+git push --delete origin "$VERSION" || true
+
+# Push all changes and tags.
+git push --follow-tags

@@ -1,0 +1,32 @@
+#!/bin/bash -o errexit -o nounset -o verbose
+
+# Return to $PWD at the end.
+trap "cd $PWD; exit" INT TERM EXIT
+
+# Get top-level repository directory.
+TOP="$(git rev-parse --show-toplevel)"
+cd "$TOP"
+
+source version
+
+# Release archive name.
+ARCHIVE="$VERSION.tar.gz"
+
+# Create a test directory and navigate to it.
+mkdir -p test
+cd test
+
+# Download the release.
+rm -f "$ARCHIVE"
+curl -fsSLO "https://github.com/texbrew/kpathsea/archive/$ARCHIVE"
+
+# Extract the archive.
+rm -rf "kpathsea-$VERSION"
+tar xzf "$ARCHIVE"
+
+# Navigate, configure, and build.
+cd "kpathsea-$VERSION/texk/kpathsea"
+./configure
+make
+cd ../texlive
+./configure

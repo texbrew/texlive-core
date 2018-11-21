@@ -1,0 +1,55 @@
+#!/bin/bash -o errexit -o nounset -o verbose
+
+# Return to $PWD at the end.
+trap "cd $PWD; exit" INT TERM EXIT
+
+# Get top-level repository directory.
+TOP="$(git rev-parse --show-toplevel)"
+cd "$TOP"
+
+source version
+
+# Check out the auxiliary build files directory.
+svn co -r $REVISION svn://tug.org/texlive/trunk/Build/source/build-aux
+
+# Check out the texlive scripts directory.
+(
+  dir=texk/texlive
+  svn co -r $REVISION svn://tug.org/texlive/trunk/Build/source/$dir $dir
+  # Remove because they contain DLLs and EXEs and are not used by configure.
+  rm -r $dir/{w32_wrapper,w64_wrapper}
+)
+
+# Check out directories only found in the Master directory.
+(
+  dir="texmf-dist/fonts/map/dvips/tetex"
+  svn co -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
+)
+(
+  dir="texmf-dist/texconfig"
+  svn co -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
+  # Remove because they are installed from the source build.
+  rm $dir/tcfmgr{,.map}
+)
+(
+  dir="texmf-dist/web2c"
+  svn co -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
+  # Remove because they are installed from the source build.
+  rm $dir/fmtutil.cnf
+)
+
+# Check out files only found in the Master directory.
+(
+  dir="texmf-dist/scripts/texlive"
+  mkdir -p $dir
+  svn export -r $REVISION svn://tug.org/texlive/trunk/Master/$dir/mktexlsr.pl $dir/
+)
+(
+  dir="texmf-dist/doc/info"
+  mkdir -p $dir
+  svn export -r $REVISION svn://tug.org/texlive/trunk/Master/$dir/tds.info $dir/
+)
+
+# Add the changes and show them
+git add build-aux texk texmf-dist
+git diff --cached

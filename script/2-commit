@@ -1,0 +1,19 @@
+#!/bin/bash -o errexit -o nounset -o verbose
+
+# Return to $PWD at the end.
+trap "cd $PWD; exit" INT TERM EXIT
+
+# Get top-level repository directory.
+TOP="$(git rev-parse --show-toplevel)"
+cd "$TOP"
+
+source version
+
+# Exit if there are unstaged changes.
+git diff-files --quiet --
+
+# Commit changes.
+git commit -m "Update to $VERSION"
+
+# Show changes.
+git show
