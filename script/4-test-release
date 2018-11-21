@@ -7,26 +7,27 @@ trap "cd $PWD; exit" INT TERM EXIT
 TOP="$(git rev-parse --show-toplevel)"
 cd "$TOP"
 
-source version
+# Get the remote repository base name.
+REPO="$(basename -s .git $(git remote get-url origin))"
 
-# Release archive name.
-ARCHIVE="$VERSION.tar.gz"
+source version
 
 # Create a test directory and navigate to it.
 mkdir -p test
 cd test
 
-# Download the release.
+ARCHIVE="$VERSION.tar.gz"
+
+# Download the release archive.
 rm -f "$ARCHIVE"
-curl -fsSLO "https://github.com/texbrew/kpathsea/archive/$ARCHIVE"
+curl -fsSLO "https://github.com/texbrew/$REPO/archive/$ARCHIVE"
+
+DIR="$REPO-$VERSION"
 
 # Extract the archive.
-rm -rf "kpathsea-$VERSION"
+rm -rf "$DIR"
 tar xzf "$ARCHIVE"
 
-# Navigate, configure, and build.
-cd "kpathsea-$VERSION/texk/kpathsea"
-./configure
-make
-cd ../texlive
+# Configure. No building: it's only scripts.
+cd "$DIR/texk/texlive"
 ./configure
