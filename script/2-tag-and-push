@@ -16,7 +16,7 @@ git diff-files --quiet --
 git diff-index --quiet HEAD --
 
 # Delete local and remote pre-release tags. If a tag does not exist, don't fail.
-if [[ "$VERSION" == "*pre" ]]; then
+if [[ "$VERSION" == *pre ]]; then
   git tag --delete "$VERSION" || true
   git push --delete origin "$VERSION" || true
 else
