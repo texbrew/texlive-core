@@ -49,6 +49,6 @@ svn checkout -r $REVISION svn://tug.org/texlive/trunk/Build/source/build-aux
 )
 (
   dir="texmf-dist/doc/info"
-  mkdir -p $dir
-  svn export --force -r $REVISION svn://tug.org/texlive/trunk/Master/$dir/tds.info $dir/
+  mkdir -p info
+  svn export --force -r $REVISION svn://tug.org/texlive/trunk/Master/$dir/tds.info info/
 )
