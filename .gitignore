@@ -19,8 +19,11 @@
 /texmf-dist/texconfig/tcfmgr.map
 /texmf-dist/web2c/fmtutil.cnf
 
-# These are maintained in Master.
+# These are found only in Master.
 /texmf-dist/scripts/texlive/*
-!/texmf-dist/scripts/texlive/fmtutil*
 !/texmf-dist/scripts/texlive/mktexlsr.pl
-!/texmf-dist/scripts/texlive/updmap*
+
+# These are found only in Master.
+/tlpkg/*
+!/tlpkg/README
+!/tlpkg/TeXLive
