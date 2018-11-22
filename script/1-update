@@ -40,13 +40,13 @@ svn checkout -r $REVISION svn://tug.org/texlive/trunk/Build/source/build-aux
   svn checkout -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
   # See .gitignore for ignored files.
 )
-
-# Check out files only found in the Master directory.
 (
   dir="texmf-dist/scripts/texlive"
-  mkdir -p $dir
-  svn export --force -r $REVISION svn://tug.org/texlive/trunk/Master/$dir/mktexlsr.pl $dir/
+  svn checkout -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir/
+  # See .gitignore for ignored files.
 )
+
+# Check out files only found in the Master directory.
 (
   dir="texmf-dist/doc/info"
   mkdir -p info
