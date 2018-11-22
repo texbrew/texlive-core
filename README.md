@@ -54,29 +54,28 @@ and may be added or removed arbitrarily. Once testing is complete, remove the
 
 ### Update the files
 
-First, update the variables in [`version`](./version) with values as described
-above.
+First, **update the variables** in [`version`](./version) with values as
+described above.
 
 1. If you are starting on a new release, append `pre` to the version. Remove the
    `pre` suffix after you have tested the release archive.
 2. Do not re-use an existing version unless it is a pre-release version.
 
-Then, run [`script/1-update-and-add`](./script/1-update-and-add) and verify the
-staged differences shown.
+Then, run [`script/1-update`](./script/1-update).
 
-If needed, make changes to the script, reset the files, and run the script
-again.
+If needed, make changes to the script or the files and run the script again.
 
-### Update the local and remote repositories
+When you are happy, **add the files** to the index (`git add`) and **commit
+them** to the local repository with a useful message (`git commit`).
 
-Run [`script/2-commit`](./script/2-commit) and verify the new commit.
+### Tag the commit and push to the remote repository
 
-Run [`script/3-tag-and-push`](./script/3-tag-and-push) to create a tag, delete
+Run [`script/2-tag-and-push`](./script/2-tag-and-push) to create a tag, delete
 any existing duplicate tag, and push to the remote repository.
 
 ### Test the remote release archive
 
-Run [`script/4-test-release`](./script/4-test-release), which downloads the
+Run [`script/3-test-release`](./script/3-test-release), which downloads the
 release archive for the [`version`](./version) and attempts to configure and
 build it. You can also browse the release archive to verify that no unnecessary
 files are included.

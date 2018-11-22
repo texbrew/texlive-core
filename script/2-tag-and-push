@@ -9,6 +9,12 @@ cd "$TOPDIR"
 
 source version
 
+# Exit if there are unstaged changes
+git diff-files --quiet --
+
+# Exit if there are uncommitted changes
+git diff-index --quiet HEAD --
+
 # Delete local and remote pre-release tags. If a tag does not exist, don't fail.
 if [[ "$VERSION" == "*pre" ]]; then
   git tag --delete "$VERSION" || true

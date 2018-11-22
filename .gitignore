@@ -5,9 +5,9 @@
 /test
 
 # The following are directories and files that we do not want to commit. We
-# previously removed them in `script/1-update-and-add`; however, that meant that
-# `svn` would constantly restore them. By ignoring them here, `svn` will not
-# attempt to restore them unless they are changed.
+# previously removed them in `script/1-update`; however, `svn checkout` would
+# constantly restore them. By ignoring them here, `svn` will not restore them
+# unless they are changed.
 
 # These contain DLLs and EXEs and are not used by configure or needed for
 # Homebrew.

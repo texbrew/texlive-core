@@ -52,7 +52,3 @@ svn checkout -r $REVISION svn://tug.org/texlive/trunk/Build/source/build-aux
   mkdir -p $dir
   svn export --force -r $REVISION svn://tug.org/texlive/trunk/Master/$dir/tds.info $dir/
 )
-
-# Add the changes and show them
-git add build-aux texk texmf-dist
-git diff --cached
