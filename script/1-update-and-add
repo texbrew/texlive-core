@@ -10,34 +10,34 @@ cd "$TOPDIR"
 source version
 
 # Check out the auxiliary build files directory.
-svn co -r $REVISION svn://tug.org/texlive/trunk/Build/source/build-aux
+svn checkout -r $REVISION svn://tug.org/texlive/trunk/Build/source/build-aux
 
 # Check out the kpathsea source directory.
 (
   dir=texk/kpathsea
-  svn co -r $REVISION svn://tug.org/texlive/trunk/Build/source/$dir $dir
+  svn checkout -r $REVISION svn://tug.org/texlive/trunk/Build/source/$dir $dir
 )
 
 # Check out the texlive scripts directory.
 (
   dir=texk/texlive
-  svn co -r $REVISION svn://tug.org/texlive/trunk/Build/source/$dir $dir
+  svn checkout -r $REVISION svn://tug.org/texlive/trunk/Build/source/$dir $dir
   # See .gitignore for ignored files.
 )
 
 # Check out directories only found in the Master directory.
 (
   dir="texmf-dist/fonts/map/dvips/tetex"
-  svn co -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
+  svn checkout -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
 )
 (
   dir="texmf-dist/texconfig"
-  svn co -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
+  svn checkout -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
   # See .gitignore for ignored files.
 )
 (
   dir="texmf-dist/web2c"
-  svn co -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
+  svn checkout -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
   # See .gitignore for ignored files.
 )
 
