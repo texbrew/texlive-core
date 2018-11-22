@@ -11,11 +11,11 @@ source version
 
 # Delete local and remote pre-release tags. If a tag does not exist, don't fail.
 if [[ "$VERSION" == "*pre" ]]; then
-  git tag -d "$VERSION" || true
+  git tag --delete "$VERSION" || true
   git push --delete origin "$VERSION" || true
 else
   # If the version was previously a pre-release, delete the pre-release tags.
-  git tag -d "${VERSION}pre" || true
+  git tag --delete "${VERSION}pre" || true
   git push --delete origin "${VERSION}pre" || true
 fi
 
