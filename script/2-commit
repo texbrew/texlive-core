@@ -4,8 +4,8 @@
 trap "cd $PWD; exit" INT TERM EXIT
 
 # Get top-level repository directory.
-TOP="$(git rev-parse --show-toplevel)"
-cd "$TOP"
+TOPDIR="$(git rev-parse --show-toplevel)"
+cd "$TOPDIR"
 
 source version
 

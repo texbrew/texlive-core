@@ -4,19 +4,23 @@
 trap "cd $PWD; exit" INT TERM EXIT
 
 # Get top-level repository directory.
-TOP="$(git rev-parse --show-toplevel)"
-cd "$TOP"
+TOPDIR="$(git rev-parse --show-toplevel)"
+cd "$TOPDIR"
 
 source version
 
-# Delete the local tag, if it exists
-git tag -d "$VERSION" || true
+# Delete local and remote pre-release tags. If a tag does not exist, don't fail.
+if [[ "$VERSION" == "*pre" ]]; then
+  git tag -d "$VERSION" || true
+  git push --delete origin "$VERSION" || true
+else
+  # If the version was previously a pre-release, delete the pre-release tags.
+  git tag -d "${VERSION}pre" || true
+  git push --delete origin "${VERSION}pre" || true
+fi
 
-# Tag the version.
+# Tag the version. This will fail if the tag already exists.
 git tag -a "$VERSION" -m "r$REVISION"
-
-# Delete the remote tag, if it exists.
-git push --delete origin "$VERSION" || true
 
 # Push all changes and tags.
 git push --follow-tags

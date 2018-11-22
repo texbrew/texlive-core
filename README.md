@@ -4,21 +4,25 @@
 
 [TeX Live]: https://www.tug.org/texlive/
 
-This repository is a clone of core parts (configuration and scripts) of the TeX
-Live Subversion [repository]. TeXbrew uses it for a [Homebrew] formula.
+This repository is a clone of core parts of the TeX Live Subversion
+[repository]. In particular, it contains `kpathsea` (a library for path
+searching), various scripts, and configuration files.
+
+TeXbrew uses the release archive in a [Homebrew] formula.
 
 [repository]: https://www.tug.org/texlive/svn/
 [Homebrew]: https://brew.sh/
 
 ## Updating this repository
 
-We update this repository every time a TeX Live release is made or when some of
-the included files change in a significant way.
+We update this repository when a `kpathsea` release is made, when a TeX Live
+release is made, or when some of the included files change in a significant way.
 
-* [`Build/source/texk/texlive/texlive`](https://www.tug.org/svn/texlive/trunk/Build/source/texk/texlive/?sortby=date&view=log)
-* [`Build/source/texk/texlive/tl_scripts`](https://www.tug.org/svn/texlive/trunk/Build/source/texk/texlive/tl_scripts/?sortby=date&view=log)
-* [`Master/texmf-dist/fonts/map/dvips/tetex`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/fonts/map/dvips/tetex?sortby=date&view=log)
-* [`Master/texmf-dist/texconfig`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/texconfig?sortby=date&view=log)
+* [`Build/source/texk/kpathsea/`](https://www.tug.org/svn/texlive/trunk/Build/source/texk/kpathsea/?sortby=date&view=log)
+* [`Build/source/texk/texlive/texlive/`](https://www.tug.org/svn/texlive/trunk/Build/source/texk/texlive/?sortby=date&view=log)
+* [`Build/source/texk/texlive/tl_scripts/`](https://www.tug.org/svn/texlive/trunk/Build/source/texk/texlive/tl_scripts/?sortby=date&view=log)
+* [`Master/texmf-dist/fonts/map/dvips/tetex/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/fonts/map/dvips/tetex?sortby=date&view=log)
+* [`Master/texmf-dist/texconfig/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/texconfig?sortby=date&view=log)
 * [`Master/texmf-dist/scripts/texlive/mktexlsr.pl`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/scripts/texlive/mktexlsr.pl?sortby=date&view=log)
 * [`Master/texmf-dist/doc/info/tds.info`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/doc/info/tds.info?sortby=date&view=log)
 
@@ -26,30 +30,42 @@ the included files change in a significant way.
 
 For a new release, we need the following:
 
-1. Subversion revision
-2. Version number
+1. Subversion revision number
+2. Version
 
-We try to use the same Subversion revision for all of the above, though we may
-need to treat them differently depending on the changes (e.g. by patching).
+We use the **Subversion revision number** for the `svn checkout` of all files.
+We may need to use additional revisions to create patches on top of the initial
+checkout.
 
-To find the revision, look at the history in the links above for changes
+To find the revision number, look at the history in the links above for changes
 indicating a new release or a significant change. For example, [revision 46759]
 indicates the imminent release of TeX Live 2018.
 
 [revision 46759]: https://www.tug.org/svn/texlive?view=revision&sortby=date&revision=46759
 
-We choose the version number using the date of the revision (or the last date if
-multiple revisions are used). In the above example, the version is `2018.02.27`.
+We choose the **version** using the year of the TeX Live release as the major
+version number and a two-digit minor version number to indicate any changes
+between annual TeX Live releases.
 
-Update the variables in the [`version`](./version) file with the values found.
+While developing and testing a given version, indicate that a release is a
+**pre-release** by appending `pre` to the version. Pre-release tags are unstable
+and may be added or removed arbitrarily. Once testing is complete, remove the
+`pre` suffix.
 
 ### Update the files
 
-Run [`script/1-update-and-add`](./script/1-update-and-add) and verify the staged
-differences shown.
+First, update the variables in [`version`](./version) with values as described
+above.
 
-If needed, you may need to make changes to the script, reset the files, and run
-the script again.
+1. If you are starting on a new release, append `pre` to the version. Remove the
+   `pre` suffix after you have tested the release archive.
+2. Do not re-use an existing version unless it is a pre-release version.
+
+Then, run [`script/1-update-and-add`](./script/1-update-and-add) and verify the
+staged differences shown.
+
+If needed, make changes to the script, reset the files, and run the script
+again.
 
 ### Update the local and remote repositories
 
@@ -58,7 +74,7 @@ Run [`script/2-commit`](./script/2-commit) and verify the new commit.
 Run [`script/3-tag-and-push`](./script/3-tag-and-push) to create a tag, delete
 any existing duplicate tag, and push to the remote repository.
 
-### Test the remote release
+### Test the remote release archive
 
 Run [`script/4-test-release`](./script/4-test-release), which downloads the
 release archive for the [`version`](./version) and attempts to configure and

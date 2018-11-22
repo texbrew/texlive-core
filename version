@@ -1,5 +1,7 @@
 # Subversion revision of the Build/source/texk/texlive directory
 REVISION="46759"
 
-# The version is the date of the revision.
-VERSION="2018.02.27"
+# The version number is the TeX Live release year (major) and revision between
+# TeX Live releases (minor). A `pre` suffix indicates a pre-release version that
+# should be considered temporary and unstable.
+VERSION="2018.01pre"

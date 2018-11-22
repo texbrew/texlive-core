@@ -4,17 +4,19 @@
 trap "cd $PWD; exit" INT TERM EXIT
 
 # Get top-level repository directory.
-TOP="$(git rev-parse --show-toplevel)"
-cd "$TOP"
+TOPDIR="$(git rev-parse --show-toplevel)"
+cd "$TOPDIR"
 
 # Get the remote repository base name.
 REPO="$(basename -s .git $(git remote get-url origin))"
 
 source version
 
+TESTDIR="$TOPDIR/test"
+
 # Create a test directory and navigate to it.
-mkdir -p test
-cd test
+mkdir -p "$TESTDIR"
+cd "$TESTDIR"
 
 ARCHIVE="$VERSION.tar.gz"
 
@@ -22,12 +24,17 @@ ARCHIVE="$VERSION.tar.gz"
 rm -f "$ARCHIVE"
 curl -fsSLO "https://github.com/texbrew/$REPO/archive/$ARCHIVE"
 
-DIR="$REPO-$VERSION"
+ARCHIVEDIR="$TESTDIR/$REPO-$VERSION"
 
 # Extract the archive.
-rm -rf "$DIR"
+rm -rf "$ARCHIVEDIR"
 tar xzf "$ARCHIVE"
 
-# Configure. No building: it's only scripts.
-cd "$DIR/texk/texlive"
+# Configure and build kpathsea.
+cd "$ARCHIVEDIR/texk/kpathsea"
+./configure
+make
+
+# Configure texlive scripts. No building necessary.
+cd "$ARCHIVEDIR/texk/texlive"
 ./configure
