@@ -61,7 +61,8 @@ described above.
    `pre` suffix after you have tested the release archive.
 2. Do not re-use an existing version unless it is a pre-release version.
 
-Then, run [`script/1-update`](./script/1-update).
+Then, run [`script/1-update`](./script/1-update) to **update the files** of this
+repository using `svn checkout` and `svn export` from the TeX Live repository.
 
 If needed, make changes to the script or the files and run the script again.
 
