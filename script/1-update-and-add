@@ -22,8 +22,7 @@ svn co -r $REVISION svn://tug.org/texlive/trunk/Build/source/build-aux
 (
   dir=texk/texlive
   svn co -r $REVISION svn://tug.org/texlive/trunk/Build/source/$dir $dir
-  # Remove because they contain DLLs and EXEs and are not used by configure.
-  rm -r $dir/{w32_wrapper,w64_wrapper}
+  # See .gitignore for ignored files.
 )
 
 # Check out directories only found in the Master directory.
@@ -34,14 +33,12 @@ svn co -r $REVISION svn://tug.org/texlive/trunk/Build/source/build-aux
 (
   dir="texmf-dist/texconfig"
   svn co -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
-  # Remove because they are installed from the source build.
-  rm $dir/tcfmgr{,.map}
+  # See .gitignore for ignored files.
 )
 (
   dir="texmf-dist/web2c"
   svn co -r $REVISION svn://tug.org/texlive/trunk/Master/$dir $dir
-  # Remove because they are installed from the source build.
-  rm $dir/fmtutil.cnf
+  # See .gitignore for ignored files.
 )
 
 # Check out files only found in the Master directory.

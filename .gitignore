@@ -3,3 +3,18 @@
 
 # Test directory
 /test
+
+# The following are directories and files that we do not want to commit. We
+# previously removed them in `script/1-update-and-add`; however, that meant that
+# `svn` would constantly restore them. By ignoring them here, `svn` will not
+# attempt to restore them unless they are changed.
+
+# These contain DLLs and EXEs and are not used by configure or needed for
+# Homebrew.
+/texk/texlive/w32_wrapper
+/texk/texlive/w64_wrapper
+
+# These are installed from the source build.
+/texmf-dist/texconfig/tcfmgr
+/texmf-dist/texconfig/tcfmgr.map
+/texmf-dist/web2c/fmtutil.cnf
