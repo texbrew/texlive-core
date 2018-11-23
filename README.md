@@ -21,10 +21,11 @@ release is made, or when some of the included files change in a significant way.
 * [`Build/source/texk/kpathsea/`](https://www.tug.org/svn/texlive/trunk/Build/source/texk/kpathsea/?sortby=date&view=log)
 * [`Build/source/texk/texlive/texlive/`](https://www.tug.org/svn/texlive/trunk/Build/source/texk/texlive/?sortby=date&view=log)
 * [`Build/source/texk/texlive/tl_scripts/`](https://www.tug.org/svn/texlive/trunk/Build/source/texk/texlive/tl_scripts/?sortby=date&view=log)
-* [`Master/texmf-dist/fonts/map/dvips/tetex/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/fonts/map/dvips/tetex?sortby=date&view=log)
-* [`Master/texmf-dist/texconfig/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/texconfig?sortby=date&view=log)
+* [`Master/texmf-dist/fonts/map/dvips/tetex/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/fonts/map/dvips/tetex/?sortby=date&view=log)
+* [`Master/texmf-dist/texconfig/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/texconfig/?sortby=date&view=log)
 * [`Master/texmf-dist/scripts/texlive/mktexlsr.pl`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/scripts/texlive/mktexlsr.pl?sortby=date&view=log)
-* [`Master/texmf-dist/doc/info/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/doc/info?sortby=date&view=log)
+* [`Master/texmf-dist/doc/info/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/doc/info/?sortby=date&view=log)
+* [`Master/tlpkg/`](https://www.tug.org/svn/texlive/trunk/Master/tlpkg/?sortby=date&view=log)
 
 ### Prepare for a release
 
