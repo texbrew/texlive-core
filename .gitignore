@@ -1,29 +1,38 @@
-# Subversion directories
+## Directories that should always be ignored
+
+# Subversion
 .svn
 
-# Test directory
+# Test
 /test
 
-# The following are directories and files that we do not want to commit. We
-# previously removed them in `script/1-update`; however, `svn checkout` would
-# constantly restore them. By ignoring them here, `svn` will not restore them
-# unless they are changed.
+## Directories and files from `svn checkout` that should not be committed
 
-# These contain DLLs and EXEs and are not used by configure or needed for
-# Homebrew.
+# NOTE: We could remove these files in `script/1-update`, but `svn checkout`
+#   always restores them. By ignoring them here, `svn checkout` does not restore
+#   them unless they're changed.
+
+# Ignore these: contain DLLs and EXEs, not needed for Homebrew
+
 /texk/texlive/w32_wrapper
 /texk/texlive/w64_wrapper
 
-# These are installed from the source build.
+# Ignore these: installed from the source build
+
 /texmf-dist/texconfig/tcfmgr
 /texmf-dist/texconfig/tcfmgr.map
+
 /texmf-dist/web2c/fmtutil.cnf
 
-# These are found only in Master.
+# Ignore all but these: found only in Master
+
+/info/*
+!/info/tds.info
+!/info/web2c.info
+
 /texmf-dist/scripts/texlive/*
 !/texmf-dist/scripts/texlive/mktexlsr.pl
 
-# These are found only in Master.
 /tlpkg/*
 !/tlpkg/README
 !/tlpkg/TeXLive

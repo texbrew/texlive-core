@@ -24,7 +24,7 @@ release is made, or when some of the included files change in a significant way.
 * [`Master/texmf-dist/fonts/map/dvips/tetex/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/fonts/map/dvips/tetex?sortby=date&view=log)
 * [`Master/texmf-dist/texconfig/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/texconfig?sortby=date&view=log)
 * [`Master/texmf-dist/scripts/texlive/mktexlsr.pl`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/scripts/texlive/mktexlsr.pl?sortby=date&view=log)
-* [`Master/texmf-dist/doc/info/tds.info`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/doc/info/tds.info?sortby=date&view=log)
+* [`Master/texmf-dist/doc/info/`](https://www.tug.org/svn/texlive/trunk/Master/texmf-dist/doc/info?sortby=date&view=log)
 
 ### Prepare for a release
 
