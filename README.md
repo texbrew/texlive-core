@@ -42,7 +42,7 @@ To find the revision number, look at the Subversion history in the links above
 for changes indicating a new release or a significant change. For example,
 [revision 47457] indicates the release of TeX Live 2018.
 
-[revision 47457]: https://tug.org/svn/texlive?view=revision&revision=47457
+[revision 47457]: https://www.tug.org/svn/texlive?view=revision&revision=47457
 
 We choose the **version** using the year of the TeX Live release as the major
 version number and a two-digit minor version number to indicate any changes
