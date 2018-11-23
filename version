@@ -1,5 +1,5 @@
 # Subversion revision of the Build/source/texk/texlive directory
-REVISION="46759"
+REVISION="47457"
 
 # The version number is the TeX Live release year (major) and revision between
 # TeX Live releases (minor). A `pre` suffix indicates a pre-release version that

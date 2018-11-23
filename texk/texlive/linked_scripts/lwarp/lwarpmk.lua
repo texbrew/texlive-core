@@ -4,7 +4,7 @@
 
 -- Print the usage of the lwarpmk command:
 
-printversion = "v0.49"
+printversion = "v0.53"
 
 function printhelp ()
 print ("lwarpmk: Use lwarpmk -h or lwarpmk --help for help.") ;
@@ -25,10 +25,11 @@ lwarpmk again [project]: Touch the source code to trigger recompiles.
 lwarpmk limages [project]: Process the "lateximages" created by lwarp.sty.
 lwarpmk pdftohtml [project]:
     For use with latexmk or a Makefile:
-    Convert project_html.pdf to project_html.html and
-    individual HTML files.
-lwarpmk clean [project]: Remove project.aux, .toc, .lof/t, .idx, .ind, .log, *_html_inc.*, .gl*
+    Converts project_html.pdf to project_html.html and individual HTML files.
+    Finishes the HTML conversion even if there was a compile error.
+lwarpmk clean [project]: Remove .aux, .toc, .lof/t, .idx, .ind, .log, *_html_inc.*, .gl*
 lwarpmk cleanall [project]: Remove auxiliary files and also project.pdf, *.html
+lwarpmk cleanlimages: Removes all images from the "lateximages" directory.
 lwarpmk -h: Print this help message.
 lwarpmk --help: Print this help message.
 
@@ -67,10 +68,12 @@ local sfile = io.open(sourcefile)
 io.output(destfile)
 for line in sfile:lines() do
 i,j,copen,cstart,newfilename = string.find (line,"(.*)|(.*)|(.*)|") ;
-if ( (i~= nil) and (copen == "<!--") and (cstart == "Start file")) then -- split the file
-io.output(newfilename) ;
-else -- not a splitpoint
-io.write (line .. "\n") ;
+if ( (i~= nil) and (copen == "<!--") and (cstart == "Start file")) then
+    -- split the file
+    io.output(newfilename) ;
+else
+    -- not a splitpoint
+    io.write (line .. "\n") ;
 end
 end -- do
 io.close(sfile)
@@ -79,8 +82,10 @@ end -- function
 -- Incorrect value, so print an error and exit.
 
 function cvalueerror ( line, linenum , cvalue )
-    print ( linenum .. " : " .. line ) ;
+    print ("lwarpmk: ===")
+    print ("lwarpmk: " .. linenum .. " : " .. line ) ;
     print ("lwarpmk: incorrect variable value \"" .. cvalue .. "\" in lwarpmk.conf.\n" ) ;
+    print ("lwarpmk: ===")
     printconf () ;
     os.exit(1) ;
 end
@@ -91,17 +96,22 @@ function loadconf ()
 -- Default configuration filename:
 local conffile = "lwarpmk.conf"
 -- Optional configuration filename:
-if arg[2] ~= nil then conffile = arg[2]..".lwarpmkconf" end
+if ( arg[2] ~= nil ) then conffile = arg[2]..".lwarpmkconf" end
 -- Default language:
 language = "english"
 -- Default xdyfile:
 xdyfile = "lwarp.xdy"
 -- Verify the file exists:
-if (lfs.attributes(conffile,"mode")==nil) then -- file not exists
-print("lwarpmk: " .. conffile .." does not exist.")
-print("lwarpmk: " .. arg[2] .. " does not appear to be a project name.\n")
-printhelp () ;
-os.exit(1) -- exit the entire lwarpmk script
+if (lfs.attributes(conffile,"mode")==nil) then
+    -- file not exists
+    print ("lwarpmk: ===")
+    print ("lwarpmk: " .. conffile .." does not exist.")
+    if ( arg[2] ~= nil ) then
+        print ("lwarpmk: " .. arg[2] .. " does not appear to be a project name.\n")
+    end
+    print ("lwarpmk: ===")
+    printhelp () ;
+    os.exit(1) -- exit the entire lwarpmk script
 else -- file exists
 -- Read the file:
 print ("lwarpmk: Reading " .. conffile ..".")
@@ -113,11 +123,13 @@ linenum = linenum + 1
 i,j,cvarname,cvalue = string.find (line,"([%w-_]*)%s*=%s*\"([%w%-_%.]*)\"") ;
 -- Error if incorrect enclosing characters:
 if ( i == nil ) then
-print ( linenum .. " : " .. line ) ;
-print ( "lwarpmk: Incorrect entry in " .. conffile ..".\n" ) ;
-printconf () ;
-os.exit(1) ;
-end
+    print ("lwarpmk: ===")
+    print ("lwarpmk: " ..  linenum .. " : " .. line ) ;
+    print ("lwarpmk: Incorrect entry in " .. conffile ..".\n" ) ;
+    print ("lwarpmk: ===")
+    printconf () ;
+    os.exit(1) ;
+end -- nil
 if ( cvarname == "opsystem" ) then
     -- Verify choice of opsystem:
     if ( (cvalue == "Unix") or (cvalue == "Windows") ) then
@@ -143,39 +155,65 @@ elseif ( cvarname == "latexmk" ) then latexmk = cvalue
 elseif ( cvarname == "language" ) then language = cvalue
 elseif ( cvarname == "xdyfile" ) then xdyfile = cvalue
 else
-print ( linenum .. " : " .. line ) ;
-print ("lwarpmk: Incorrect variable name \"" .. cvarname .. "\" in " .. conffile ..".\n" ) ;
-printconf () ;
+    print ("lwarpmk: ===")
+    print ("lwarpmk: " .. linenum .. " : " .. line ) ;
+    print ("lwarpmk: Incorrect variable name \"" .. cvarname .. "\" in " .. conffile ..".\n" ) ;
+    print ("lwarpmk: ===")
+    printconf () ;
 os.exit(1) ;
-end
+end -- cvarname
 end -- do scan lines
 io.close(cfile)
 end -- file exists
+-- Error if sourcename is "lwarp".
+-- This could happen if a local copy of lwarp has recently been recompiled.
+if sourcename=="lwarp" then
+    print ("lwarpmk: ===")
+    print ("lwarpmk: Lwarp has recently been recompiled in this directory,")
+    print ("lwarpmk: and \"lwarpmk.conf\" is no longer set for your own project.")
+    print ("lwarpmk: Recompile your own project using pdf/lua/xelatex <projectname>.")
+    print ("lwarpmk: After a recompile, \"lwarpmk.conf\" will be set for your project,")
+    print ("lwarpmk: and you may again use lwarpmk.")
+    print ("lwarpmk: ===")
+    os.exit(1)
+end -- sourcename of "lwarp"
 -- Select some operating-system commands:
 if opsystem=="Unix" then  -- For Unix / Linux / Mac OS:
-rmname = "rm"
-mvname = "mv"
-touchnamepre = "touch"
-touchnamepost = ""
-dirslash = "/"
-opquote= "\'"
+    rmname = "rm"
+    mvname = "mv"
+    cpname = "cp"
+    touchnamepre = "touch"
+    touchnamepost = ""
+    newtouchname = "touch"
+    dirslash = "/"
+    opquote= "\'"
+    cmdgroupopenname = " ( "
+    cmdgroupclosename = " ) "
+    seqname = " ; "
+    bgname = " &"
 elseif opsystem=="Windows" then -- For Windows
-rmname = "DEL"
-mvname = "MOVE"
-touchnamepre = "COPY /b"
-touchnamepost = "+,,"
-dirslash = "\\"
-opquote= "\""
+    rmname = "DEL"
+    mvname = "MOVE"
+    cpname = "COPY"
+    touchnamepre = "COPY /b"
+    touchnamepost = "+,,"
+    newtouchname = "echo empty >"
+    dirslash = "\\"
+    opquote= "\""
+    cmdgroupopenname = ""
+    cmdgroupclosename = ""
+    seqname = " & "
+    bgname = ""
 else print ( "lwarpmk: Select Unix or Windows for opsystem" )
 end --- for Windows
 
 -- set xindycmd according to pdflatex vs xelatex/lualatex:
 if ( latexname == "pdflatex" ) then
-xindycmd = "texindy  -C utf8"
-glossarycmd = "xindy -C utf8"
+    xindycmd = "texindy  -C utf8"
+    glossarycmd = "xindy -C utf8"
 else
-xindycmd = "xindy  -M texindy  -C utf8"
-glossarycmd = "xindy -C utf8"
+    xindycmd = "xindy  -M texindy  -C utf8"
+    glossarycmd = "xindy -C utf8"
 end
 
 end -- loadconf
@@ -194,8 +232,8 @@ for line in fsource:lines() do
 if ( string.find(line,"Rerun to get") ~= nil ) then
     io.close(fsource)
     return true
-end
-end
+end -- if
+end -- do
 io.close(fsource)
 return false
 end
@@ -205,10 +243,13 @@ end
 
 function onetime (fsuffix)
 print("lwarpmk: Compiling with " .. latexname .. " " .. sourcename..fsuffix)
-err = os.execute(
---    "echo " ..
-    latexname .. " " .. sourcename..fsuffix )
-if ( err ~= 0 ) then print ( "lwarpmk: Compile error.") ; os.exit(1) ; end
+err = os.execute(latexname .. " " .. sourcename..fsuffix)
+if ( err ~= 0 ) then
+    print ("lwarpmk: ===")
+    print ("lwarpmk: Compile error.")
+    print ("lwarpmk: ===")
+    os.exit(1)
+end
 return (reruntoget(sourcename .. fsuffix .. ".log") ) ;
 end
 
@@ -228,93 +269,196 @@ end
 
 function verifyfileexists (filename)
 if (lfs.attributes ( filename , "modification" ) == nil ) then
-print ( "lwarpmk: " .. filename .. " not found." ) ;
-os.exit (1) ;
+    print ("lwarpmk: ===")
+    print ("lwarpmk: " .. filename .. " not found." ) ;
+    print ("lwarpmk: ===")
+    os.exit (1) ;
 end
 end
 
 -- Convert <project>_html.pdf into HTML files:
 
 function pdftohtml ()
-    -- Convert to text:
-    print ("lwarpmk: Converting " .. sourcename
-        .."_html.pdf to " .. sourcename .. "_html.html")
-    os.execute("pdftotext  -enc UTF-8  -nopgbrk  -layout "
-        .. sourcename .. "_html.pdf " .. sourcename .. "_html.html")
-    -- Split the result into individual HTML files:
-    splitfile (homehtmlfilename .. ".html" , sourcename .. "_html.html")
+-- Convert to text:
+print ("lwarpmk: Converting " .. sourcename
+    .."_html.pdf to " .. sourcename .. "_html.html")
+os.execute("pdftotext  -enc UTF-8  -nopgbrk  -layout "
+    .. sourcename .. "_html.pdf " .. sourcename .. "_html.html")
+-- Split the result into individual HTML files:
+splitfile (homehtmlfilename .. ".html" , sourcename .. "_html.html")
 end
 
 -- Remove auxiliary files:
-
+-- All aux files are removed since there may be many bbl*.aux files.
 function removeaux ()
-    os.execute ( rmname .. " " ..
-        sourcename ..".aux " .. sourcename .. "_html.aux " ..
-        sourcename ..".toc " .. sourcename .. "_html.toc " ..
-        sourcename ..".lof " .. sourcename .. "_html.lof " ..
-        sourcename ..".lot " .. sourcename .. "_html.lot " ..
-        sourcename ..".idx " .. sourcename .. "_html.idx " ..
-        sourcename ..".ind " .. sourcename .. "_html.ind " ..
-        sourcename ..".log " .. sourcename .. "_html.log " ..
-        sourcename ..".gl* " .. sourcename .. "_html.gl* " ..
-        "*_html_inc.*"
-        )
+os.execute ( rmname .. " *.aux " ..
+    sourcename ..".toc " .. sourcename .. "_html.toc " ..
+    sourcename ..".lof " .. sourcename .. "_html.lof " ..
+    sourcename ..".lot " .. sourcename .. "_html.lot " ..
+    sourcename ..".idx " .. sourcename .. "_html.idx " ..
+    sourcename ..".ind " .. sourcename .. "_html.ind " ..
+    sourcename ..".log " .. sourcename .. "_html.log " ..
+    sourcename ..".gl* " .. sourcename .. "_html.gl* " ..
+    " *_html_inc.* "
+    )
 end
 
 -- Create lateximages based on lateximages.txt:
 function createlateximages ()
 print ("lwarpmk: Creating lateximages.")
-local limagesfile = io.open("lateximages.txt")
+local limagesfile = io.open("lateximages.txt", "r")
+if ( limagesfile == nil ) then
+    print ("lwarpmk: ===")
+    print ("lwarpmk: \"lateximages.txt\" does not exist.")
+    print ("lwarpmk: Your project does not use SVG math or other lateximages,")
+    print ("lwarpmk: or the file has been deleted somehow.")
+    print ("lwarpmk: Use \"lwarpmk html\" to recompile your project,")
+    print ("lwarpmk: and recreate \"lateximages.txt\".")
+    print ("lwarpmk: If your project does not use SVG math or other lateximages,")
+    print ("lwarpmk: then \"lateximages.txt\" will never exist, and")
+    print ("lwarpmk: \"lwarpmk limages\" will not be necessary.")
+    print ("lwarpmk: ===")
+    os.exit(1)
+end
 -- Create the lateximages directory, ignore error if already exists
 err = os.execute("mkdir lateximages")
+-- For Windows, create lwarp_one_limage.cmd:
+if opsystem=="Windows" then
+    err = os.execute (
+        cpname .. " lwarp_one_limage.txt lwarp_one_limage.cmd"
+    )
+    if ( err ~= 0 ) then
+        print ("lwarpmk: ===")
+        print ("lwarpmk: File error trying to copy to lwarp_one_limage.cmd")
+        print ("lwarpmk: ===")
+        os.exit(1) ;
+    end
+end -- create lwarp_one_limage.cmd
+-- Track the number of parallel processes
+numimageprocesses = 0
+-- Track warning to recompile if find a page 0
+pagezerowarning = false
 -- Scan lateximages.txt
 for line in limagesfile:lines() do
 -- lwimgpage is the page number in the PDF which has the image
--- lwimgnum is the sequential lateximage number to assign for the image
-i,j,lwimgpage,lwimgnum = string.find (line,"|(.*)|(.*)|")
+-- lwimghash is true if this filename is a hash
+-- lwimgname is the lateximage filename root to assign for the image
+i,j,lwimgpage,lwimghash,lwimgname = string.find (line,"|(.*)|(.*)|(.*)|")
 -- For each entry:
 if ( (i~=nil) ) then
--- Separate out the image into its own single-page pdf:
-err = os.execute(
-"pdfseparate -f " .. lwimgpage .. " -l " ..
- lwimgpage .. " " .. sourcename .."_html.pdf lateximagetemp-%d.pdf")
--- Crop the image:
-err = os.execute(
-"pdfcrop  lateximagetemp-" .. lwimgpage ..".pdf lateximage-" .. lwimgnum ..".pdf")
-if ( err ~= 0 ) then print ( "lwarpmk: File error.") ; os.exit(1) ; end
--- Convert the image to svg:
-err = os.execute(
-"pdftocairo -svg lateximage-" .. lwimgnum ..".pdf lateximage-" .. lwimgnum ..".svg")
-if ( err ~= 0 ) then print ( "lwarpmk: File error.") ; os.exit(1) ; end
--- Move the result into lateximages/:
-err = os.execute(
-mvname .. " lateximage-" .. lwimgnum ..".svg lateximages" .. dirslash )
-if ( err ~= 0 ) then print ( "lwarpmk: File error.") ; os.exit(1) ; end
--- Remove the temporary files:
-err = os.execute(
-rmname .. " lateximage-" .. lwimgnum ..".pdf lateximagetemp-" .. lwimgpage ..".pdf")
-if ( err ~= 0 ) then print ( "lwarpmk: File error.") ; os.exit(1) ; end
+-- Skip if the page number is 0:
+if ( lwimgpage == "0" ) then
+    pagezerowarning = true
+else
+-- Skip is this image is hashed and already exists:
+local lwimgfullname = "lateximages" .. dirslash .. lwimgname .. ".svg"
+if (
+    (lwimghash ~= "true") or
+    (lfs.attributes(lwimgfullname,"mode")==nil) -- file not exists
+)
+then -- not hashed or not exists:
+-- Print the name of the file being generated:
+print ( "lwarpmk: " .. lwimgname )
+-- Touch/create the dest so that only once instance tries to build it:
+err = os.execute(newtouchname .. " " .. lwimgfullname)
+if ( err ~= 0 ) then
+    print ("lwarpmk: ===")
+    print ("lwarpmk: File error trying to touch " .. lwimgfullname)
+    print ("lwarpmk: ===")
+    os.exit(1) ;
 end
+-- Separate out the image into its own single-page pdf:
+if opsystem=="Unix" then
+-- For Unix / Linux / Mac OS:
+err = os.execute(
+cmdgroupopenname ..
+"pdfseparate -f " .. lwimgpage .. " -l " .. lwimgpage .. " " ..
+    sourcename .."_html.pdf " ..
+    "lateximages" .. dirslash .."lateximagetemp-%d" .. ".pdf" ..
+    seqname ..
+-- Crop the image:
+"pdfcrop  --hires  lateximages" .. dirslash .. "lateximagetemp-" .. lwimgpage .. ".pdf " ..
+    "lateximages" .. dirslash .. lwimgname .. ".pdf" ..
+    seqname ..
+-- Convert the image to svg:
+"pdftocairo -svg  -noshrink  lateximages" .. dirslash .. lwimgname .. ".pdf " ..
+    "lateximages" .. dirslash .. lwimgname ..".svg" ..
+    seqname ..
+-- Remove the temporary files:
+rmname .. " lateximages" .. dirslash .. lwimgname .. ".pdf" .. seqname ..
+rmname .. " lateximages" .. dirslash .. "lateximagetemp-" .. lwimgpage .. ".pdf" ..
+cmdgroupclosename .. " >/dev/null " .. bgname
+)
+-- Every 32 images, wait for completion at below normal priority,
+--  allowing other image tasks to catch up.
+numimageprocesses = numimageprocesses + 1
+if ( numimageprocesses > 32 ) then
+    numimageprocesses = 0
+    print ( "lwarpmk: waiting" )
+    err = os.execute ( "wait" )
+end
+elseif opsystem=="Windows" then
+-- For Windows
+-- Every 32 images, wait for completion at below normal priority,
+--  allowing other image tasks to catch up.
+numimageprocesses = numimageprocesses + 1
+if ( numimageprocesses > 32 ) then
+    numimageprocesses = 0
+    thiswaitcommand = "/WAIT /BELOWNORMAL"
+    print ( "lwarpmk: waiting" )
+else
+    thiswaitcommand = ""
+end
+-- Execute the image generation command
+err = os.execute (
+    "start /B " .. thiswaitcommand .. " \"\" lwarp_one_limage " ..
+    lwimgpage .. " " ..
+    lwimghash .. " " ..
+    lwimgname .. " " ..
+    sourcename .. " <nul >nul"
+)
+end -- Windows
+if ( err ~= 0 ) then
+    print ("lwarpmk: ===")
+    print ("lwarpmk: File error trying to create one lateximage.")
+    print ("lwarpmk: ===")
+    os.exit(1)
+end
+end -- not hashed or not exists
+end -- not page 0
+end -- not nil
 end -- do
 io.close(limagesfile)
+print ( "lwarpmk limages: done" )
+if ( pagezerowarning == true ) then
+    print ( "lwarpmk limages: WARNING: Images will be incorrect." )
+    print ( "lwarpmk limages:   Enter \"lwarpmk cleanlimages\", then" )
+    print ( "lwarpmk limages:   recompile the document one more time, then" )
+    print ( "lwarpmk limages:   repeat \"lwarpmk images\" again." )
+end -- pagezerowarning
 end -- function
 
 -- Use latexmk to compile source and index:
 -- fsuffix is "" for print, or "_html" for HTML
 function compilelatexmk ( fsuffix )
-    -- The recorder option is required to detect changes in <project>.tex
-    -- while we are loading <project>_html.tex.
-    err=os.execute ( "latexmk -pdf -dvi- -ps- -recorder "
-        .. "-e "
-        .. opquote
-        .. "$makeindex = q/" -- $
-        .. xindycmd
-        .. "  -M " .. xdyfile
-        .. "  -L " .. language .. " /"
-        .. opquote
-        .. " -pdflatex=\"" .. latexname .." %O %S\" "
-        .. sourcename..fsuffix ..".tex" ) ;
-    if ( err ~= 0 ) then print ( "lwarpmk: Compile error.") ; os.exit(1) ; end
+-- The recorder option is required to detect changes in <project>.tex
+-- while we are loading <project>_html.tex.
+err=os.execute ( "latexmk -pdf -dvi- -ps- -recorder "
+    .. "-e "
+    .. opquote
+    .. "$makeindex = q/" -- $
+    .. xindycmd
+    .. "  -M " .. xdyfile
+    .. "  -L " .. language .. " /"
+    .. opquote
+    .. " -pdflatex=\"" .. latexname .." %O %S\" "
+    .. sourcename..fsuffix ..".tex" ) ;
+if ( err ~= 0 ) then
+    print ("lwarpmk: ===")
+    print ("lwarpmk: Compile error.")
+    print ("lwarpmk: ===")
+    os.exit(1)
+end
 end
 
 -- lwarpmk --version :
@@ -466,16 +610,12 @@ print ("lwarpmk: " .. sourcename ..".tex is ready to be recompiled.")
 print ("lwarpmk: Done.")
 
 -- lwarpmk limages:
--- Scan the lateximages.txt file to create lateximages,
--- then touch the source to trigger a recompile.
+-- Scan the lateximages.txt file to create lateximages.
 
 elseif arg[1] == "limages" then
 loadconf ()
 print ("lwarpmk: Processing images.")
 createlateximages ()
-print ("lwarpmk: Forcing an update of " .. sourcename ..".tex.")
-refreshdate ()
-print ("lwarpmk: " .. sourcename ..".tex is ready to be recompiled.")
 print ("lwarpmk: Done.")
 
 -- lwarpmk again:
@@ -507,6 +647,14 @@ os.execute ( rmname .. " " ..
     sourcename .. ".pdf " .. sourcename .. "_html.pdf " ..
     "*.html"
     )
+print ("lwarpmk: Done.")
+
+-- lwarpmk cleanlimages
+-- Remove images from the lateximages directory.
+
+elseif arg[1] == "cleanlimages" then
+loadconf ()
+os.execute ( rmname .. " lateximages/*" )
 print ("lwarpmk: Done.")
 
 -- lwarpmk with no argument :

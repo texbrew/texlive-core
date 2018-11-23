@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
-# $Id: tlmgr.pl 46683 2018-02-20 05:44:02Z preining $
+# $Id: tlmgr.pl 47303 2018-04-05 17:52:22Z karl $
 #
 # Copyright 2008-2018 Norbert Preining
 # This file is licensed under the GNU General Public License version 2
 # or any later version.
 
-my $svnrev = '$Revision: 46683 $';
-my $datrev = '$Date: 2018-02-20 06:44:02 +0100 (Tue, 20 Feb 2018) $';
+my $svnrev = '$Revision: 47303 $';
+my $datrev = '$Date: 2018-04-05 19:52:22 +0200 (Thu, 05 Apr 2018) $';
 my $tlmgrrevision;
 my $tlmgrversion;
 my $prg;
@@ -28,6 +28,7 @@ our $tlmgr_config_file;
 our $pinfile;
 our $action; # for the pod2usage -sections call
 our %opts;
+our $allowed_verify_args_regex = qr/^(none|main|all)$/i;
 
 END {
   if ($opts{"pause"}) {
@@ -281,6 +282,7 @@ my %action_specification = (
   },
   "remove" => { 
     "options"  => {
+      "all" => 1,
       "backup" => 1,
       "backupdir" => "=s",
       "dry-run|n" => 1,
@@ -318,11 +320,6 @@ my %action_specification = (
   },
   "shell" => {
     "function" => \&action_shell
-  },
-  "uninstall" => {
-    "options"  => { "force" => 1 },
-    "run-post" => 0,
-    "function" => \&action_uninstall
   },
   "update" => {
     "options"  => {
@@ -366,6 +363,7 @@ my %globaloptions = (
   "print-platform-info" => 1,
   "usermode|user-mode" => 1,
   "usertree|user-tree" => "=s",
+  "verify-repo" => "=s",
   "verify-downloads" => "!",
   "require-verification" => "!",
   "version" => 1,
@@ -478,6 +476,29 @@ sub main {
   if (defined $action && $action =~ /^(show|list)$/) {
     $action = "info";
   }
+  # merge actions remove and uninstall
+  if (defined $action && $action eq "uninstall") {
+    $action = "remove";
+  }
+
+  #
+  # check for correctness of verify-repo argument
+  if (defined($opts{"verify-repo"}) &&
+      ($opts{"verify-repo"} !~ m/$allowed_verify_args_regex/)) {
+    tldie("$prg: unknown value for --verify-repo: $opts{'verify-repo'}\n");
+  }
+  # convert command line crypto options
+  $opts{"verify-repo"}
+    = convert_crypto_options($opts{"verify-downloads"},
+                             $opts{"require-verification"},
+                             $opts{"verify-repo"});
+  if (defined($opts{"verify-downloads"})
+      || defined($opts{"require-verification"})) {
+    tlwarn("$prg: please use -verify-repo options instead of verify-downloads/require-verification\n" .
+           "$prg: adjusting to --verify-repo=$opts{'verify-repo'}\n");
+  }
+  delete $opts{"require-verification"};
+  delete $opts{"verify-downloads"};
 
   # now $action should be part of %actionoptions, otherwise this is
   # an error
@@ -1083,6 +1104,14 @@ sub backup_and_remove_package {
 }
 
 sub action_remove {
+  # if --all is given, pass on to uninstall_texlive
+  if ($opts{'all'}) {
+    if (@ARGV) {
+      tlwarn("$prg: No additional arguments allowed with --all: @ARGV\n");
+      return($F_ERROR);
+    }
+    exit(uninstall_texlive());
+  }
   # we do the following:
   # - (not implemented) order collections such that those depending on
   #   other collections are first removed, and then those which only
@@ -1773,7 +1802,8 @@ sub restore_one_package {
     return ($F_ERROR);
   }
   $localtlpdb->remove_package($pkg);
-  TeXLive::TLPDB->_install_data($restore_file , 0, [] ,$localtlpdb);
+  # the -1 force the TLUtils::unpack to NOT warn about missing checksum/sizes
+  TeXLive::TLPDB->_install_data($restore_file , 0, [], $localtlpdb, "-1", "-1");
   logpackage("restore: $pkg ($rev)");
   # now we have to read the .tlpobj file and add it to the DB
   my $tlpobj = TeXLive::TLPOBJ->new;
@@ -1970,7 +2000,11 @@ sub action_restore {
         }
       }
     } else {
-      print "No backups available in $opts{'backupdir'}\n";
+      if ($opts{'json'}) {
+        print "[]\n";
+      } else {
+        print "No backups available in $opts{'backupdir'}\n";
+      }
     }
     return ($F_OK | $F_NOPOSTACTION);
   }
@@ -3239,8 +3273,9 @@ sub action_update {
           $unwind_package = $newname;
         }
 
+        # the -1 force the TLUtils::unpack to NOT warn about missing checksum/sizes
         my ($instret, $msg) = TeXLive::TLUtils::unpack("$unwind_package",
-          $localtlpdb->root);
+          $localtlpdb->root, checksum => "-1", checksize => "-1");
         if ($instret) {
           # now we have to include the tlpobj
           my $tlpobj = TeXLive::TLPOBJ->new;
@@ -5049,7 +5084,7 @@ Error message from creating MainWindow:
 
 #  UNINSTALL
 #
-sub action_uninstall {
+sub uninstall_texlive {
   if (win32()) {
     printf STDERR "Please use \"Add/Remove Programs\" from the Control Panel to removing TeX Live!\n";
     return ($F_ERROR);
@@ -6191,7 +6226,7 @@ sub action_shell {
   # keys which can be set/get and are also settable via global cmdline opts
   my @valid_bool_keys
     = qw/debug-translation machine-readable no-execute-actions
-         require-verification verify-downloads json/;  
+         verify-repo json/;  
   my @valid_string_keys = qw/repository prompt/;
   my @valid_keys = (@valid_bool_keys, @valid_string_keys);
   # set auto flush unconditionally in action shell
@@ -6510,50 +6545,49 @@ sub handle_gpg_config_settings {
   # setup gpg if available
   # by default we setup gpg
   # default value
-  my $do_setup_gpg = 1;
+  my $do_setup_gpg = "main";
   # the value is set in the config file
-  if (defined($config{'verify-downloads'})) {
-    $do_setup_gpg = $config{'verify-downloads'};
+  if (defined($config{'verify-repo'})) {
+    $do_setup_gpg = $config{'verify-repo'};
   }
   # command line
-  if (defined($opts{'verify-downloads'})) {
-    $do_setup_gpg = $opts{'verify-downloads'};
+  if (defined($opts{'verify-repo'})) {
+    $do_setup_gpg = $opts{'verify-repo'};
   }
   # now we know whether we setup gpg or not
-  if ($do_setup_gpg) {
+  if ($do_setup_gpg ne "none") {
     if (TeXLive::TLCrypto::setup_gpg($Master)) {
       debug("will verify cryptographic signatures\n")
     } else {
       my $prefix = "$prg: No gpg found"; # just to shorten the strings
-      if ($opts{'verify-downloads'}) {
-        # verification was requested on the command line, but did not succeed, die
+      if (defined($opts{'verify-repo'}) && $opts{'verify-repo'} eq "all") {
+        # verification requested on the command line, but did not succeed: die
         tldie("$prefix, verification explicitly requested on command line, quitting.\n");
       }
-      if ($config{'verify-downloads'}) {
+      if (defined($config{'verify-repo'}) && $config{'verify-repo'} eq "all") {
         # verification explicitly requested in config file, but not gpg, die
         tldie("$prefix, verification explicitly requested in config file, quitting.\n");
       }
       # it was requested via the default setting, so just debug it
       # the list of repositories will contain verified/not verified statements
       debug ("$prefix, verification implicitly requested, "
-            . "continuing without verification\n");
+             . "continuing without verification\n");
     }
   } else {
     # we do not setup gpg: when explicitly requested, be silent, otherwise info
     my $prefix = "$prg: not setting up gpg";
-    if (defined($opts{'verify-downloads'})) {
+    if (defined($opts{'verify-repo'})) {
       # log normally is *NOT* logged to a file
       # tlmgr does by default *NOT* set up a log file (cmd line option)
       # user requested it, so don't bother with output
       debug("$prefix, requested on command line\n");
-    } elsif (defined($config{'verify-downloads'})) {
+    } elsif (defined($config{'verify-repo'})) {
       debug("$prefix, requested in config file\n");
     } else {
       tldie("$prg: how could this happen? gpg setup.\n");
     }
   }
 }
-
 
 # initialize the global $remotetlpdb object, or die.
 # uses the global $location.
@@ -6968,10 +7002,10 @@ sub load_config_file {
   # first set default values
   $config{"gui-expertmode"} = 1;
   $config{"auto-remove"} = 1;
-  $config{"require-verification"} = 0;
   $config{"persistent-downloads"} = 1;
-  # do NOT set this here, we distinguish between explicitly set in the config file
-  # or implicitly true
+  $config{"verify-repo"} = "main";
+  # do NOT set this here, we distinguish between explicitly set in the
+  # config file or implicitly true:
   # $config{"verify-downloads"} = 1;
 
   # loads system config file, this cannot be changes with tlmgr
@@ -6986,6 +7020,18 @@ sub load_config_file {
   $tlmgr_config_file = TeXLive::TLConfFile->new($fn, "#", "=");
   load_options_from_config($tlmgr_config_file) if $tlmgr_config_file;
 
+  $config{"verify-repo"}
+    = convert_crypto_options($config{"verify-downloads"},
+                             $config{"require-verification"},
+                             $config{"verify-repo"});
+  delete $config{"require-verification"};
+  delete $config{"verify-downloads"};
+
+  # TODO TODO
+  # rename old crypto options
+  #
+  # TODO TODO
+  # what should we do with this?
   # set $opts{"key"} from $config{"key"} if not passed in on cmd line
   if (!defined($opts{"require-verification"})) {
     $opts{"require-verification"} = $config{"require-verification"};
@@ -7055,6 +7101,13 @@ sub load_options_from_config {
         tlwarn("$prg: $fn: Unknown value for verify-downloads: $val\n");
       }
 
+    } elsif ($key eq "verify-repo") {
+      if ($val =~ m/$allowed_verify_args_regex/) {
+        $config{"verify-repo"} = $val;
+      } else {
+        tlwarn("$prg: $fn: Unknown value for verify-repo: $val\n");
+      }
+
     } elsif ($key eq "no-checksums") {
       if ($val eq "1") {
         $config{"no-checksums"} = 1;
@@ -7100,6 +7153,55 @@ sub write_config_file {
   if ($tlmgr_config_file->is_changed) {
     $tlmgr_config_file->save;
   }
+}
+
+sub convert_crypto_options {
+  my ($verify_downloads, $require_verification, $verify_repo) = @_;
+
+  # leave undefined to deal with case that nothing has been passed in
+  my $ret;
+
+  # crypto options rewriting
+  if ((defined($verify_downloads) || defined($require_verification)) &&
+      defined($verify_repo)) {
+    # we cannot have all three, warn and bail out
+    tldie("$prg: The options verify-downloads and require-verification have\n"
+        . "$prg: been superseded by verify-repo, please use only the latter!\n");
+  }
+  # return immediately if verify_repo is already set
+  return($verify_repo) if (defined($verify_repo));
+
+  if (defined($verify_downloads)) {
+    if ($verify_downloads) {
+      # explicit --verify-downloads was given
+      if ($require_verification) {
+        # --require-verification was given
+        $ret = "all";
+      } else {
+        # either nothing passed or --no-require-verification (default)
+        # use explit setting to main
+        $ret = "main";
+      }
+    } else {
+      # explicit --no-verify-downloads was given
+      if ($require_verification) {
+        # --require-verification was given
+        tldie("You cannot ask for --no-verify-downloads and"
+              . " --require-verification  at the same time!\n");
+      } else {
+        $ret = "none";
+      }
+    }
+  } else {
+    # nothing related to verify-download was given, so it is by default
+    # set to true
+    if ($require_verification) {
+      $ret = "all";
+    } else {
+      # don't set anything, as nothing has been passed in
+    }
+  }
+  return($ret);
 }
 
 # if the packagelog variable is set then write to PACKAGELOG filehandle
@@ -7262,7 +7364,7 @@ tlmgr - the native TeX Live Manager
 
 =head1 SYNOPSIS
 
-tlmgr [I<option>]... I<action> [I<option>]... [I<operand>]...
+tlmgr [I<option>...] I<action> [I<option>...] [I<operand>...]
 
 =head1 DESCRIPTION
 
@@ -7385,7 +7487,7 @@ what remains to be done.
 
 Instead of the normal output intended for human consumption, write (to
 standard output) a fixed format more suitable for machine parsing.  See
-the L</MACHINE-READABLE OUTPUT> section below.
+the L<MACHINE-READABLE OUTPUT> section below.
 
 =item B<--no-execute-actions>
 
@@ -7424,16 +7526,6 @@ Change the pinning file location from C<TEXMFLOCAL/tlpkg/pinning.txt>
 (see L</Pinning> below).  Documented only for completeness, as this is
 only useful in debugging.
 
-=item B<--require-verification>
-
-=item B<--no-require-verification>
-
-Verify that all remote repositories to be correctly signed, or quit.
-With C<--no-require-verification>, all verification is omitted.  By
-default, verification is performed (but not required) if GnuPG and the
-relevant keys are available. See L<CRYPTOGRAPHIC VERIFICATION> below for
-details.
-
 =item B<--usermode>
 
 Activates user mode for this run of C<tlmgr>; see L<USER MODE> below.
@@ -7442,15 +7534,14 @@ Activates user mode for this run of C<tlmgr>; see L<USER MODE> below.
 
 Uses I<dir> for the tree in user mode; see L<USER MODE> below.
 
-=item B<--verify-downloads>
+=item B<--verify-repo=[none|main|all]>
 
-=item B<--no-verify-downloads>
-
-Enables or disables cryptographic verification of all downloaded
-database files.  A working GnuPG (C<gpg>) binary needs to be present in
-the path, otherwise this option has no effect.  By default, the main
-repository is verified, while any other repositories are not verified.
-See L<CRYPTOGRAPHIC VERIFICATION> below for details.
+Defines the level of verification done: If C<none> is specified, no
+verification whatsoever is done. If C<main> is given and a working GnuPG
+(C<gpg>) binary is available, all repositories are checked, but only the
+main repository is required to be signed. If C<all> is given, then all
+repositories need to be signed.  See L<CRYPTOGRAPHIC VERIFICATION> below
+for details.
 
 =back
 
@@ -7480,7 +7571,13 @@ Gives version information (same as C<--version>).
 
 If C<-v> has been given the revisions of the used modules are reported, too.
 
-=head2 backup [--clean[=I<N>]] [--backupdir I<dir>] [--all | I<pkg>]...
+=head2 backup
+
+=over 4
+
+=item B<backup [I<option>...] --all>
+
+=item B<backup [I<option>...] I<pkg>...>
 
 If the C<--clean> option is not specified, this action makes a backup of
 the given packages, or all packages given C<--all>. These backups are
@@ -7526,18 +7623,14 @@ performed are written to the terminal.
 
 =back
 
-=head2 candidates I<pkg>
-
-=over 4
-
-=item B<candidates I<pkg>>
-
-Shows the available candidate repositories for package I<pkg>.
-See L</MULTIPLE REPOSITORIES> below.
-
 =back
 
-=head2 check [I<option>]... [files|depends|executes|runfiles|all]
+=head2 candidates I<pkg>
+
+Shows the available candidate repositories for package I<pkg>.
+See L<MULTIPLE REPOSITORIES> below.
+
+=head2 check [I<option>...] [files|depends|executes|runfiles|all]
 
 Executes one (or all) check(s) on the consistency of the installation.
 
@@ -7580,9 +7673,13 @@ checking the TL development repository.
 
 =back
 
-=head2 conf [texmf|tlmgr|updmap [--conffile I<file>] [--delete] [I<key> [I<value>]]]
+=head2 conf
 
-=head2 conf auxtrees [--conffile I<file>] [show|add|delete] [I<value>]
+=over 4
+
+=item  B<conf [texmf|tlmgr|updmap [--conffile I<file>] [--delete] [I<key> [I<value>]]]>
+
+=item B<conf auxtrees [--conffile I<file>] [show|add|delete] [I<value>]>
 
 With only C<conf>, show general configuration information for TeX Live,
 including active configuration files, path settings, and more.  This is
@@ -7631,7 +7728,9 @@ but tinkering with settings in this way is strongly discouraged.  Again,
 no error checking on either keys or values is done, so any sort of
 breakage is possible.
 
-=head2 dump-tlpdb [--local|--remote] [--json]
+=back
+
+=head2 dump-tlpdb [I<option>...] [--json]
 
 Dump complete local or remote TLPDB to standard output, as-is.  The
 output is analogous to the C<--machine-readable> output; see
@@ -7669,17 +7768,17 @@ I<location> is the file or url to the repository.
 
 Line endings may be either LF or CRLF depending on the current platform.
 
-=head2 generate [I<option>]... I<what>
+=head2 generate
 
 =over 4
 
-=item B<generate language>
+=item B<generate [I<option>...] language>
 
-=item B<generate language.dat>
+=item B<generate [I<option>...] language.dat>
 
-=item B<generate language.def>
+=item B<generate [I<option>...] language.def>
 
-=item B<generate language.dat.lua>
+=item B<generate [I<option>...] language.dat.lua>
 
 =back
 
@@ -7786,7 +7885,15 @@ The respective locations are as follows:
 
 Start the graphical user interface. See B<GUI> below.
 
-=head2 info [I<option>...] [collections|schemes|I<pkg>...]
+=head2 info
+
+=over 4
+
+=item B<info [I<option>...] I<pkg>...>
+
+=item B<info [I<option>...] collections>
+
+=item B<info [I<option>...] schemes>
 
 With no argument, lists all packages available at the package
 repository, prefixing those already installed with C<i>.
@@ -7855,13 +7962,15 @@ If both C<--json> and C<--data> are given, C<--json> takes precedence.
 
 =back
 
+=back
+
 =head2 init-usertree
 
 Sets up a texmf tree for so-called user mode management, either the
 default user tree (C<TEXMFHOME>), or one specified on the command line
 with C<--usertree>.  See L<USER MODE> below.
 
-=head2 install [I<option>]... I<pkg>...
+=head2 install [I<option>...] I<pkg>...
 
 Install each I<pkg> given on the command line, if it is not already
 installed.  (It does not touch existing packages; see the C<update>
@@ -7927,7 +8036,15 @@ C<--reinstall>, as in (using the C<fontspec> package as the example):
 
 =back
 
-=head2 key list|add I<file>|remove I<keyid>
+=head2 key
+
+=over 4
+
+=item B<key list>
+
+=item B<key add I<file>>
+
+=item B<key remove I<keyid>>
 
 The action C<key> allows listing, adding and removing additional GPG
 keys to the set of trusted keys, that is, those that are used to verify
@@ -7942,6 +8059,12 @@ C<tlpkg/gpg/repository-keys.gpg>.
 
 The C<remove> argument requires a key id and removes the requested id
 from the local keyring.
+
+=back
+
+=head2 list
+
+Synonym for L</info>.
 
 =head2 option
 
@@ -8087,7 +8210,13 @@ C<texconfig> script, which supports other configuration settings for
 some programs, notably C<dvips>.  C<tlmgr> does not support those extra
 settings.
 
-=head2 path [--w32mode=user|admin] [add|remove]
+=head2 path
+
+=over 4
+
+=item B<path [--w32mode=user|admin] add>
+
+=item B<path [--w32mode=user|admin] remove>
 
 On Unix, merely adds or removes symlinks for binaries, man pages, and
 info pages in the system directories specified by the respective options
@@ -8110,9 +8239,11 @@ is changed, while if the setting I<w32_multi_user> is on, a warning is
 issued that the caller does not have enough privileges.
 
 If the user does not have admin rights, and the option C<--w32mode>
-is given, it must be B<user> and the user path will be adjusted. If a
+is given, it must be C<user> and the user path will be adjusted. If a
 user without admin rights uses the option C<--w32mode admin> a warning
 is issued that the caller does not have enough privileges.
+
+=back
 
 =head2 pinning 
 
@@ -8140,11 +8271,15 @@ Remove all pinning data for repository I<repo>.
 
 =back
 
-=head2 platform list|add|remove I<platform>...
+=head2 platform
 
-=head2 platform set I<platform>
+=over 4
 
-=head2 platform set auto
+=item B<platform list|add|remove I<platform>...>
+
+=item B<platform set I<platform>>
+
+=item B<platform set auto>
 
 C<platform list> lists the TeX Live names of all the platforms
 (a.k.a. architectures), (C<i386-linux>, ...) available at the package
@@ -8178,6 +8313,8 @@ written to the terminal.
 
 =back
 
+=back
+
 =cut
 
 # keep the following on *ONE* line otherwise Losedows perldoc does
@@ -8185,12 +8322,24 @@ written to the terminal.
 
 =pod
 
-=head2 postaction [--w32mode=user|admin] [--fileassocmode=1|2] [--all] [install|remove] [shortcut|fileassoc|script] [I<pkg>]...
+=head2 postaction
+
+=over 4
+
+=item B<postaction [I<option>...] install [shortcut|fileassoc|script] [I<pkg>...]>
+
+=item B<postaction [I<option>...] remove [shortcut|fileassoc|script] [I<pkg>...]>
 
 Carry out the postaction C<shortcut>, C<fileassoc>, or C<script> given
 as the second required argument in install or remove mode (which is the
 first required argument), for either the packages given on the command
 line, or for all if C<--all> is given.
+
+Options:
+
+=over 4
+
+=item B<--w32mode=[user|admin]>
 
 If the option C<--w32mode> is given the value C<user>, all actions will
 only be carried out in the user-accessible parts of the
@@ -8198,10 +8347,20 @@ registry/filesystem, while the value C<admin> selects the system-wide
 parts of the registry for the file associations.  If you do not have
 enough permissions, using C<--w32mode=admin> will not succeed.
 
+=item B<--fileassocmode=[1|2]>
+
 C<--fileassocmode> specifies the action for file associations.  If it is
 set to 1 (the default), only new associations are added; if it is set to
 2, all associations are set to the TeX Live programs.  (See also
 C<option fileassocs>.)
+
+=item B<--all>
+
+Carry out the postactions for all packages
+
+=back
+
+=back
 
 =head2 print-platform
 
@@ -8214,7 +8373,7 @@ C<--print-arch> is a synonym.
 Print the TeX Live platform identifier, TL platform long name, and
 original output from guess.
 
-=head2 remove [I<option>]... I<pkg>...
+=head2 remove [I<option>...] I<pkg>...
 
 Remove each I<pkg> specified.  Removing a collection removes all package
 dependencies (unless C<--no-depends> is specified), but not any
@@ -8223,29 +8382,21 @@ package, dependencies are never removed.  Options:
 
 =over 4
 
+=item B<--all>
+
+Uninstalls all of TeX Live, asking for confirmation unless C<--force> is
+also specified.
+
 =item B<--backup>
 
 =item B<--backupdir> I<directory>
 
-These options behave just as with the L</update> action (q.v.), except
-they apply to making backups of packages before they are removed.  The
-default is to make such a backup, that is, to save a copy of packages
-before removal.
+These options behave just as with the L<update|/update
+[I<option>...] [I<pkg>...]> action (q.v.), except they apply to making
+backups of packages before they are removed.  The default is to make
+such a backup, that is, to save a copy of packages before removal.
 
-See L</update> action for more.
-
-neither option is given, no backup will be made. If C<--backupdir> is
-given and specifies a writable directory then a backup will be made in
-that location. If only C<--backup> is given, then a backup will be made
-to the directory previously set via the C<option> action (see below). If
-both are given then a backup will be made to the specified I<directory>.
-
-You can set options via the C<option> action to automatically make
-backups for all packages, and/or keep only a certain number of backups.
-Please see the C<option> action for details. The default is to make one
-backup.
-
-The C<restore> action explains how to restore from a backup.
+The L</restore> action explains how to restore from a backup.
 
 =item B<--no-depends>
 
@@ -8253,7 +8404,7 @@ Do not remove dependent packages.
 
 =item B<--no-depends-at-all>
 
-See above under B<install> (and beware).
+See above under L<install|/install [I<option>...] I<pkg>...> (and beware).
 
 =item B<--force>
 
@@ -8263,8 +8414,8 @@ package will be removed unconditionally.  Use with care.
 
 A package that has been removed using the C<--force> option because it
 is still listed in an installed collection or scheme will not be
-updated, and will be mentioned as B<forcibly removed> in the output of
-B<tlmgr update --list>.
+updated, and will be mentioned as C<forcibly removed> in the output of
+C<tlmgr update --list>.
 
 =item B<--dry-run>
 
@@ -8287,7 +8438,7 @@ written to the terminal.
 
 =item B<repository set I<path>[#I<tag>] [I<path>[#I<tag>] ...]>
 
-This action manages the list of repositories.  See L</MULTIPLE
+This action manages the list of repositories.  See L<MULTIPLE
 REPOSITORIES> below for detailed explanations.
 
 The first form (C<list>) lists all configured repositories and the
@@ -8309,7 +8460,13 @@ otherwise, all operations will fail!
 
 =back
 
-=head2 restore [--json] [--backupdir I<dir>] [--all | I<pkg> [I<rev>]]
+=head2 restore
+
+=over 4
+
+=item B<restore [I<option>...] I<pkg> [I<rev>]>
+
+=item B<restore [I<option>...] --all>
 
 Restore a package from a previously-made backup.
 
@@ -8359,11 +8516,17 @@ If both C<--json> and C<--data> are given, C<--json> takes precedence.
 
 =back
 
-=head2 search [I<option>...] I<what>
+=back
 
-=head3 search [I<option>...] --file I<what>
+=head2 search
 
-=head3 search [I<option>...] --all I<what>
+=over 4
+
+=item B<search [I<option>...] I<what>>
+
+=item B<search [I<option>...] --file I<what>>
+
+=item B<search [I<option>...] --all I<what>>
 
 By default, search the names, short descriptions, and long descriptions
 of all locally installed packages for the argument I<what>, interpreted
@@ -8392,6 +8555,8 @@ Restrict the search of package names and descriptions (but not
 filenames) to match only full words.  For example, searching for
 C<table> with this option will not output packages containing the word
 C<tables> (unless they also contain the word C<table> on its own).
+
+=back
 
 =back
 
@@ -8457,19 +8622,15 @@ If I<var> or then I<val> is not specified, it is prompted for.
 
 =back
 
+=head2 show
+
+Synonym for L</info>.
+
 =head2 uninstall
 
-Uninstalls the entire TeX Live installation.  Options:
+Synonym for L<remove|/remove [I<option>...] I<pkg>...>.
 
-=over 4
-
-=item B<--force>
-
-Do not ask for confirmation, remove immediately.
-
-=back
-
-=head2 update [I<option>]... [I<pkg>]...
+=head2 update [I<option>...] [I<pkg>...]
 
 Updates the packages given as arguments to the latest version available
 at the installation source.  Either C<--all> or at least one I<pkg> name
@@ -8568,7 +8729,7 @@ This option can also be set permanently in the tlmgr config file with
 the key C<update-exclude>.
 
 
-=item B<--no-auto-remove> [I<pkg>]...
+=item B<--no-auto-remove> [I<pkg>...]
 
 By default, C<tlmgr> tries to remove packages which have disappeared on
 the server, as described above under C<--all>.  This option prevents
@@ -8577,7 +8738,7 @@ given I<pkg> names.  This can lead to an inconsistent TeX installation,
 since packages are not infrequently renamed or replaced by their
 authors.  Therefore this is not recommend.
 
-=item B<--no-auto-install> [I<pkg>]...
+=item B<--no-auto-install> [I<pkg>...]
 
 Under normal circumstances C<tlmgr> will install packages which are new
 on the server, as described above under C<--all>.  This option prevents
@@ -8611,18 +8772,18 @@ installation with the server's idea of what is available:
 
 =item B<--backup>
 
-=item  B<--backupdir> I<directory>
+=item B<--backupdir> I<directory>
 
 These two options control the creation of backups of packages I<before>
 updating; that is, backup of packages as currently installed.  If
-neither options is given, no backup will made saved. If C<--backupdir>
-is given and specifies a writable directory then a backup will be made
-in that location. If only C<--backup> is given, then a backup will be
-made to the directory previously set via the L</option> action (see
+neither options is given, no backup will made. If C<--backupdir> is
+given and specifies a writable directory then a backup will be made in
+that location. If only C<--backup> is given, then a backup will be made
+to the directory previously set via the L</option> action (see
 below). If both are given then a backup will be made to the specified
 I<directory>.
 
-You can also set options via the C</option> action to automatically make
+You can also set options via the L</option> action to automatically make
 backups for all packages, and/or keep only a certain number of backups.
 
 C<tlmgr> always makes a temporary backup when updating packages, in case
@@ -8641,7 +8802,7 @@ suppresses this behavior.
 
 =item B<--no-depends-at-all>
 
-See above under B<install> (and beware).
+See above under L<install|/install [I<option>...] I<pkg>...> (and beware).
 
 =item B<--force>
 
@@ -8753,19 +8914,23 @@ report C<(verified)> after loading the TLPDB; otherwise, they report
 C<(not verified)>.  But either way, by default the installation and/or
 updates proceed normally.
 
-If a program named C<gpg> is available (that is, found in C<PATH>),
-cryptographic signatures will be checked. In this case we require the
-main repository be signed, but not any additional repositories. If
-C<gpg> is not available, signatures are not checked and no verification
-is carried out, but C<tlmgr> proceeds normally.
+If a program named C<gpg> is available (that is, found in C<PATH>), by
+default cryptographic signatures will be checked: we require the main
+repository be signed, but not any additional repositories. If C<gpg> is
+not available, by default signatures are not checked and no verification
+is carried out, but C<tlmgr> still proceeds normally.
 
-The attempted verification can be suppressed entirely by specifying
-C<--no-verify-downloads> on the command line, or a line
-C<verify-downloads=0> in a C<tlmgr> config file (see L<CONFIGURATION
-FILE FOR TLMGR>).  On the other hand, you can I<require> successful
-verification by specifying C<--require-verification> on the command
-line, or C<require-verification=1> in a C<tlmgr> config file; in this
-case, if verification is not possible, or fails, the program quits.
+The behavior of the verification can be controlled by the command line
+and config file option C<verify-repo> which takes one of the following
+values: C<none>, C<main>, or C<all>. With C<none>, no verification
+whatsoever is attempted.  With C<main> (the default) verification is
+required only for the main repository, and only if C<gpg> is available;
+though attempted for all, missing signatures of subsidiary repositories
+will not result in an error.  Finally, in the case of C<all>, C<gpg>
+must be available and all repositories need to be signed.
+
+In all cases, if a signature is checked and fails to verify, an error
+is raised.
 
 Cryptographic verification requires checksum checking (described just
 above) to succeed, and a working GnuPG (C<gpg>) program (see below for
@@ -9209,9 +9374,9 @@ written to stdout).  The idea is that a program can get all the
 information it needs by reading stdout.
 
 Currently this option only applies to the 
-L<update|/update [I<option>]... [I<pkg>]...>,
-L<install|/install [I<option>]... I<pkg>...>, and
-L</option> actions.  
+L<update|/update [I<option>...] [I<pkg>...]>,
+L<install|/install [I<option>...] I<pkg>...>, and
+L</option> actions.
 
 =head2 Machine-readable C<update> and C<install> output
 
@@ -9352,7 +9517,7 @@ This script and its documentation were written for the TeX Live
 distribution (L<http://tug.org/texlive>) and both are licensed under the
 GNU General Public License Version 2 or later.
 
-$Id: tlmgr.pl 46683 2018-02-20 05:44:02Z preining $
+$Id: tlmgr.pl 47303 2018-04-05 17:52:22Z karl $
 =cut
 
 # to remake HTML version: pod2html --cachedir=/tmp tlmgr.pl >/tmp/tlmgr.html
